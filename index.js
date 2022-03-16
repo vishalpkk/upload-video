@@ -3,12 +3,16 @@ require('dotenv').config()
 const app = express()
 const port = process.env.PORT || 3000
 const busboy = require('busboy');
-
+const fs = require('fs')
+const path = require('path')
 function getExtension(filename) {
     return filename.filename.split(".").pop();
 }
 
 function isFileValid(filename) {
+    
+    console.log("Checking File type ..")
+
     const allowedExts = ["mp4"];
     const allowedMimeTypes = ["video/mp4"];
 
@@ -20,19 +24,35 @@ function isFileValid(filename) {
 }
 
 app.post('/upload-video', (req, res) => {
+
     const bb = busboy({ headers: req.headers });
+    
+    req.pipe(bb);
 
     bb.on('file', async (fieldname, file, filename) => {
+        
         if ("file" != fieldname) {
             return res.json({message :"Please type the form field as file"});
         }
+        
         const status = isFileValid(filename);
+    
         if (!status) {
             return res.json({message : "Please Provide a file with valide extenstion"});
-        }      
-        res.json({ message: "File successfully uploaded" });
+        }   
+
+        const fstream = fs.createWriteStream(path.join('.', filename.filename));
+        // Pipe it trough
+        file.pipe(fstream);
+    
+        // On finish of the upload
+        fstream.on('close', () => {
+          console.log(`Upload of '${filename.filename}' finished`);
+        });
     });
-    req.pipe(bb);
+    bb.on('finish', () => {
+        res.json({message : "Video Uploaded Successfully"});
+    })
 });    
 
 app.listen(port, () => {
